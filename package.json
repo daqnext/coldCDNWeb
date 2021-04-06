@@ -67,6 +67,7 @@
     "react-app-polyfill": "^1.0.6",
     "react-bootstrap-daterangepicker": "^7.0.0",
     "react-chartist": "^0.14.3",
+    "react-csv": "^2.0.3",
     "react-dev-utils": "^10.2.1",
     "react-device-detect": "^1.14.0",
     "react-dom": "^16.14.0",

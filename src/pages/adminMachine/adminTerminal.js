@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2020-11-24 08:20:10
- * @LastEditTime: 2021-03-23 12:52:21
+ * @LastEditTime: 2021-04-06 21:22:15
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: /mesonweb/src/pages/adminMachine/adminTerminal.js
@@ -13,6 +13,8 @@ import Global from "../../global/global";
 import axios from "axios";
 import UserManager from "../../manager/usermanager";
 import { withAlert } from "react-alert";
+import { CSVLink, CSVDownload } from "react-csv";
+import { times } from "chartist";
 
 class AdminTerminal extends React.Component {
     constructor(props) {
@@ -66,6 +68,15 @@ class AdminTerminal extends React.Component {
                 render: ({ value }) => {
                     let speed = value;
                     return <div>{(speed*8 / 1000).toFixed(2)} Mb/s</div>;
+                },
+            },
+            {
+                name: "cdn_disk_total",
+                header: "cdn_disk_total",
+                defaultFlex: 1,
+                render: ({ value }) => {
+                    let space = value;
+                    return <div>{space/1e9} GB</div>;
                 },
             },
             {
@@ -291,12 +302,14 @@ class AdminTerminal extends React.Component {
             tableData: [],
             terminalAllowVersion: "",
             terminalLatestVersion:"",
+            originData:[],
         };
     }
 
     async componentDidMount() {
         this.GetTerminalAllowVersion();
         this.loadData();
+        this.OutPutAllTerminalToCSV();
     }
 
     async GetTerminalAllowVersion() {
@@ -318,7 +331,7 @@ class AdminTerminal extends React.Component {
                 console.log(skip, limit);
                 return axios
                     .post(
-                        Global.apiHost + "/api/v1/admin/allterminals",
+                        Global.apiHost+"/api/v1/admin/allterminals",
                         {
                             limit: limit,
                             offset: skip,
@@ -361,6 +374,7 @@ class AdminTerminal extends React.Component {
                                         terminalInfo.cdn_disk_total) *
                                     100
                                 ).toFixed(2),
+                                cdn_disk_total:terminalInfo.cdn_disk_total,
                                 disk_usage: (
                                     ((terminalInfo.machine_total_disk -
                                         terminalInfo.machine_available_disk) /
@@ -407,10 +421,89 @@ class AdminTerminal extends React.Component {
         );
     };
 
+    OutPutAllTerminalToCSV(){
+        axios.post("http://center.coldcdn.com/api/v1/admin/allterminals",
+                        {
+                            limit: 100000,
+                            offset: 0,
+                        },
+                        {
+                            headers: {
+                                Authorization:
+                                    "Bearer " + UserManager.GetUserToken(),
+                            },
+                        }
+                    ).then((response)=>{
+                        if (response.data.status != 0) {
+                            return null;
+                        }
+                        let responseData = response.data.data;
+                        console.log(responseData);
+    
+                        //this.setState({originData:responseData.data})
+                        let terminalInfos = responseData.data;
+                        let tableData = [];
+                        for (
+                            let index = 0;
+                            index < terminalInfos.length;
+                            index++
+                        ) {
+                            const terminalInfo = terminalInfos[index];
+                            let tData = {
+                                id: terminalInfo.id,
+                                machine_mac: terminalInfo.machine_mac,
+                                machine_ip: terminalInfo.machine_ip,
+                                port: terminalInfo.port,
+                                continent: terminalInfo.continent,
+                                country: terminalInfo.country,
+                                city: terminalInfo.city,
+                                area: terminalInfo.area,
+                                speed_Mbs: terminalInfo.machine_net_speed*8/1000,
+                                cdn_disk_total_GB:terminalInfo.cdn_disk_total/1e9,
+                                cdn_space_usage: (
+                                    ((terminalInfo.cdn_disk_total -
+                                        terminalInfo.cdn_disk_available) /
+                                        terminalInfo.cdn_disk_total) *
+                                    100
+                                ).toFixed(2),
+                                disk_usage: (
+                                    ((terminalInfo.machine_total_disk -
+                                        terminalInfo.machine_available_disk) /
+                                        terminalInfo.machine_total_disk) *
+                                    100
+                                ).toFixed(2),
+                                memory_total_GB:terminalInfo.machine_total_memory/(1024*1024*1024),
+                                memory_usage: (
+                                    ((terminalInfo.machine_total_memory -
+                                        terminalInfo.machine_free_memory) /
+                                        terminalInfo.machine_total_memory) *
+                                    100
+                                ).toFixed(2),
+                                machine_status: terminalInfo.machine_status,
+                                version:
+                                    terminalInfo.version == ""
+                                        ? "0.1.1"
+                                        : terminalInfo.version,
+                                //info: terminalInfo,
+                            };
+                            tableData.push(tData);
+                        }
+                        
+                        this.setState({originData:tableData})
+                    })
+
+                    
+                    
+    }
+
     render() {
         return (
             <div className="  border-light shadow-sm">
                 <this.DataGrid></this.DataGrid>
+            
+                <CSVLink data={this.state.originData}>
+                                Download me
+                            </CSVLink>
             </div>
         );
     }
